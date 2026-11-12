@@ -53,7 +53,9 @@ class FrmCoordinator(DataUpdateCoordinator):
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             manufacturer="Gert Bezuidenhout",
+            model="Satisfactory Remote Monitoring",
             configuration_url=str(endpoint(entry.data)),
+        )
         )
 
     async def _async_update_data(self):
