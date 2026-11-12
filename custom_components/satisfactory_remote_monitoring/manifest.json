@@ -1,0 +1,11 @@
+{
+  "domain": "satisfactory_remote_monitoring",
+  "name": "Satisfactory Remote Monitoring",
+  "version": "0.4.7",
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "integration_type": "service",
+  "documentation": "https://docs.ficsit.app/ficsitremotemonitoring/latest/index.html",
+  "codeowners": [],
+  "requirements": []
+}

@@ -1,0 +1,53 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Ficsit Remote Monitoring",
+        "description": "Enter the LAN IP address or hostname of your Satisfactory server and the FRM HTTP port.",
+        "data": {
+          "host": "Server address",
+          "port": "FRM HTTP port"
+        }
+      }
+    },
+    "error": {
+      "invalid_host": "Enter an IP address or hostname without a scheme or path.",
+      "cannot_connect": "Could not read /getSessionInfo from this server."
+    },
+    "abort": {
+      "already_configured": "This server is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "settings": {
+        "title": "Factory monitoring",
+        "data": {
+          "production": "Production items",
+          "world": "World stock items",
+          "depot": "Dimensional Depot items",
+          "storage": "Storage containers",
+          "storage_items": "Items to monitor in selected containers",
+          "machines": "Factory machines",
+          "buildings": "Buildings for power monitoring",
+          "players": "Players",
+          "low_stock": "Low stock threshold (items)",
+          "low_headroom": "Low power headroom threshold (%)",
+          "read_endpoints": "FRM read endpoints"
+        },
+        "description": "Choose endpoints and save. Reopen Configure after the first refresh to select records from newly enabled endpoints. Session info is always queried for connectivity. Large endpoints such as getAll can take longer to refresh."
+      },
+      "init": {
+        "title": "Factory monitoring",
+        "menu_options": {
+          "settings": "Monitoring settings",
+          "endpoint_guide": "Endpoint guide"
+        }
+      },
+      "endpoint_guide": {
+        "title": "Endpoint guide",
+        "description": "{endpoint_descriptions}"
+      }
+    }
+  }
+}
