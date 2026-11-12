@@ -1,7 +1,7 @@
 {
   "domain": "satisfactory_remote_monitoring",
   "name": "Satisfactory Remote Monitoring",
-  "version": "0.4.7",
+  "version": "0.4.9",
   "config_flow": true,
   "iot_class": "local_polling",
   "integration_type": "service",
