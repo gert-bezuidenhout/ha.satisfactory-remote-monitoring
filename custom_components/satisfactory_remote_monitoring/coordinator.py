@@ -56,7 +56,6 @@ class FrmCoordinator(DataUpdateCoordinator):
             model="Satisfactory Remote Monitoring",
             configuration_url=str(endpoint(entry.data)),
         )
-        )
 
     async def _async_update_data(self):
         try:
