@@ -2,61 +2,89 @@
 
 <img src="custom_components/satisfactory_remote_monitoring/brand/icon.png" alt="Satisfactory Remote Monitoring" width="128" height="128">
 
-Monitor your Satisfactory factory from Home Assistant. This community integration reads the Ficsit Remote Monitoring (FRM) HTTP API directly and exposes game data for dashboards and automations. It does not require MQTT.
+Bring Satisfactory into Home Assistant with live updates on power usage, fuse trips, production, inventory and players.
 
-[Home Assistant](https://www.home-assistant.io/) is an open-source home automation platform. It lets you bring devices and services into one dashboard and automate actions based on their states.
+[Home Assistant](https://www.home-assistant.io/) is an open-source platform that brings devices, dashboards and automations together, with an emphasis on local control and privacy.
 
-Ficsit Remote Monitoring is a Satisfactory mod that exposes factory and game telemetry over HTTP.
+[Ficsit Remote Monitoring (FRM)](https://ficsit.app/mod/FicsitRemoteMonitoring#top) is a Satisfactory mod that exposes factory and game telemetry through an HTTP API.
+
+This is an independent community integration maintained by Gert Bezuidenhout, not an official Satisfactory, FRM or Home Assistant product. It reads the FRM API directly; no MQTT broker is required.
+
+## What it does
+
+- Supplies session details and player status.
+- Monitors circuit power capacity, consumption and fuse trips.
+- Offers optional factory, inventory, production and logistics monitoring.
+- Provides UI configuration for server settings, endpoints, record selections and alert thresholds.
+- Supports separate integration entries for different servers.
+
+The integration supplies sensors and binary sensors for dashboards and automations. It does not send game-control commands.
 
 ## Before you install
 
-- Install [Satisfactory Mod Manager](https://ficsit.app/smm).
-- Use it to install the [Ficsit Remote Monitoring mod](https://ficsit.app/mod/FicsitRemoteMonitoring#top) on the Satisfactory instance you want to monitor.
-- Start the FRM HTTP API and make sure Home Assistant can reach it. See the [FRM documentation](https://docs.ficsit.app/ficsitremotemonitoring/latest/index.html) for setup.
+1. Install [Satisfactory Mod Manager](https://ficsit.app/smm).
+2. Install the [Ficsit Remote Monitoring mod](https://ficsit.app/mod/FicsitRemoteMonitoring#top) on the Satisfactory instance you want to monitor.
+3. Start the FRM HTTP API and make sure Home Assistant can reach it. Follow the [FRM documentation](https://docs.ficsit.app/ficsitremotemonitoring/latest/index.html) for your mod version.
 
-## Install from Home Assistant Marketplace
+Use the server's LAN address. The address `127.0.0.1` points to Home Assistant itself when entered in the integration; it does not reach a separate Satisfactory server.
 
-Install this community integration using its GitHub URL as a custom repository. Default catalogue listing is a separate process.
+## Install with HACS
 
-1. In Home Assistant, open **Marketplace** and choose **Add from a GitHub link**.
-2. Paste `https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring` and select **Add**.
-3. Open **Satisfactory Remote Monitoring**, select **Install**, and restart Home Assistant if prompted.
-4. Go to **Settings → Devices & services → Add integration**, then select **Satisfactory Remote Monitoring**.
-5. Enter your FRM server address and HTTP port.
+This integration has not yet been accepted into the default HACS Marketplace catalogue. Install it as a custom repository:
 
-## What you can monitor
+1. Install and configure [HACS](https://www.hacs.xyz/docs/use/) in Home Assistant if needed.
+2. Open HACS, open its menu and select **Custom repositories**.
+3. Add `https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring` with type **Integration**.
+4. Find **Satisfactory Remote Monitoring**, download it and restart Home Assistant.
+5. Open **Settings > Devices & services > Add integration** and select **Satisfactory Remote Monitoring**.
 
-- Session details and player status.
-- Circuit power capacity, consumption, and fuse trips.
-- Optional factory, inventory, production, and logistics data. Open **Configure → Monitoring settings** to enable additional endpoints and choose what to monitor where supported.
+If your Marketplace interface provides **Add from a GitHub link**, use the same repository URL there. Downloading the integration and adding it under Devices & services are separate steps. No configuration.yaml changes are required.
 
-## Configuration
+## Configure the server
 
-Open the integration's **Configure** gear to change the server connection, enable telemetry endpoints, or adjust record selections and alert thresholds. The integration checks `/getSessionInfo` before saving a new connection. Existing entity IDs are retained for records that are still available on the new server.
+Enter the server IP address or hostname without a scheme, path or port. Enter the FRM HTTP port separately; the default is **8080**. Setup checks `/getSessionInfo` before creating the entry.
 
-## Entities and automations
+Open the integration's **Configure** gear to access:
 
-Use the integration's sensors and binary sensors in dashboards and automations. They report session, player and circuit data, with optional telemetry for enabled endpoints. The integration reads FRM data and provides no game-control actions.
+- **Server connection:** change the address or port. The new connection is checked before saving, and monitoring options are retained.
+- **Monitoring settings:** choose endpoints, records and alert thresholds. After enabling new endpoints, save, wait for a refresh and reopen Configure to select newly discovered records.
+- **Endpoint guide:** read descriptions of the available endpoints.
 
-## Update or remove
+Existing entity IDs are retained for records still available at the new address. A different factory can expose different identifiers.
 
-Install updates from the integration's Marketplace page and restart Home Assistant when prompted. To remove it, delete its entries in **Settings → Devices & services**, then uninstall it from Marketplace and restart when prompted. Review any dashboards and automations that refer to its entities.
+## Understanding the data
 
-## Repository files
-
-| Path | Purpose |
+| Data group | Meaning |
 | --- | --- |
-| `custom_components/satisfactory_remote_monitoring/` | Integration code, manifest, translations, and brand assets |
-| `hacs.json` | Marketplace package metadata |
-| `.github/workflows/` | Repository validation |
-| `docs/releases/` | Release notes |
+| Session | Session details read from FRM; session polling runs every 10 seconds. |
+| Circuits | Power capacity, usage and fuse information supplied by the power endpoint. |
+| Factory and inventory | Values from enabled endpoints and selected records. |
+| Players and logistics | Available telemetry supplied by the selected endpoints. |
+| Alerts | Binary sensors using the available telemetry and configured thresholds. |
 
-## Troubleshooting
+Available records depend on the server, mod version and enabled endpoints. An empty `/getPower` response supplies no circuits. The integration cannot create telemetry that FRM does not return.
 
-If setup cannot connect, check that the FRM HTTP API is running and that Home Assistant can reach the configured address and port. When reporting an integration problem, include the Home Assistant, integration, and FRM versions along with the relevant log entry. [Report an issue](https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring/issues).
+## Troubleshooting and privacy
 
-Maintained by Gert Bezuidenhout.
+- **Cannot connect:** check the FRM API is running, confirm the LAN address and port, and verify Home Assistant can reach `/getSessionInfo`.
+- **No power entities:** check whether `/getPower` returns circuit data and whether that endpoint is enabled.
+- **Missing optional data:** enable the relevant endpoints, wait for a refresh and reopen Monitoring settings to select records.
+- **Integration not listed:** restart Home Assistant after downloading it and check the Home Assistant logs.
 
-## License
+The integration uses local HTTP. Keep the API on a trusted network. Redact server addresses, player names and other private data from logs or screenshots before sharing them.
 
-Original integration code by Gert Bezuidenhout is available under the [MIT License](LICENSE). Third-party code, artwork, and trademarks remain subject to their respective terms.
+## Updates and removal
+
+Download updates through HACS/Marketplace and restart Home Assistant. Keep the existing integration entries when updating. See [MIGRATION.md](MIGRATION.md) for upgrade guidance.
+
+To uninstall, remove the integration entries under Devices & services, remove its download in HACS/Marketplace and restart Home Assistant. Review dashboards and automations that use its entities.
+
+## Support and project files
+
+Report problems through [GitHub Issues](https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring/issues), including Home Assistant, integration and FRM versions, steps to reproduce and redacted logs.
+
+See the [repository file guide](docs/FILES.md), [release notes](docs/releases/) and [Marketplace preparation checklist](docs/HACS_SUBMISSION.md).
+
+## Licence
+
+Original project code is licensed under the [MIT licence](LICENSE), copyright Gert Bezuidenhout. Third-party code, artwork and trademarks remain subject to their respective terms; this project does not imply their endorsement.
