@@ -1,6 +1,6 @@
 # Satisfactory Remote Monitoring for Home Assistant
 
-![Satisfactory Remote Monitoring](custom_components/satisfactory_remote_monitoring/brand/icon.png)
+<img src="custom_components/satisfactory_remote_monitoring/brand/icon.png" alt="Satisfactory Remote Monitoring" width="128" height="128">
 
 Monitor your Satisfactory factory from Home Assistant. This community integration reads the Ficsit Remote Monitoring (FRM) HTTP API directly and exposes game data for dashboards and automations. It does not require MQTT.
 
