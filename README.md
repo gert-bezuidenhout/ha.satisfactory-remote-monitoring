@@ -56,3 +56,7 @@ Install updates from the integration's Marketplace page and restart Home Assista
 If setup cannot connect, check that the FRM HTTP API is running and that Home Assistant can reach the configured address and port. When reporting an integration problem, include the Home Assistant, integration, and FRM versions along with the relevant log entry. [Report an issue](https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring/issues).
 
 Maintained by Gert Bezuidenhout.
+
+## License
+
+Original integration code by Gert Bezuidenhout is available under the [MIT License](LICENSE). Third-party code, artwork, and trademarks remain subject to their respective terms.
