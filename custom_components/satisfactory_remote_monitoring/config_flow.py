@@ -61,7 +61,46 @@ class FrmOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         return self.async_show_menu(
-            step_id="init", menu_options=["settings", "endpoint_guide"]
+            step_id="init", menu_options=["settings", "connection", "endpoint_guide"]
+        )
+
+    async def async_step_connection(self, user_input=None):
+        """Validate a new address before updating the existing entry."""
+        entry = self.config_entry
+        values = entry.data if user_input is None else user_input
+        errors = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip().strip("[]").lower().rstrip(".")
+            data = {**entry.data, CONF_HOST: host, CONF_PORT: user_input[CONF_PORT]}
+            try:
+                if not host or any(c.isspace() or c in "/?#@" for c in host):
+                    raise ValueError("Invalid host")
+                unique_id = str(endpoint(data))
+            except ValueError:
+                errors[CONF_HOST] = "invalid_host"
+            else:
+                if any(other.entry_id != entry.entry_id and other.unique_id == unique_id
+                       for other in self.hass.config_entries.async_entries(DOMAIN)):
+                    errors["base"] = "already_configured"
+                else:
+                    try:
+                        await fetch_session(self.hass, data)
+                    except (ClientError, asyncio.TimeoutError, ValueError):
+                        errors["base"] = "cannot_connect"
+                    else:
+                        self.hass.config_entries.async_update_entry(
+                            entry, data=data, unique_id=unique_id
+                        )
+                        return self.async_create_entry(title="", data=dict(entry.options))
+
+        return self.async_show_form(
+            step_id="connection",
+            data_schema=vol.Schema({
+                vol.Required(CONF_HOST, default=values[CONF_HOST]): str,
+                vol.Required(CONF_PORT, default=values[CONF_PORT]):
+                    vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+            }),
+            errors=errors,
         )
 
     async def async_step_endpoint_guide(self, user_input=None):
@@ -78,7 +117,7 @@ class FrmOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_settings(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data={**self.config_entry.options, **user_input})
 
         coordinator = getattr(self.config_entry, "runtime_data", None)
         factory = getattr(coordinator, "factory", None)
