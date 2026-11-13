@@ -12,7 +12,8 @@
     },
     "error": {
       "invalid_host": "Enter an IP address or hostname without a scheme or path.",
-      "cannot_connect": "Could not read /getSessionInfo from this server."
+      "cannot_connect": "Could not read /getSessionInfo from this server.",
+      "already_configured": "This server is already configured."
     },
     "abort": {
       "already_configured": "This server is already configured."
@@ -41,13 +42,27 @@
         "title": "Factory monitoring",
         "menu_options": {
           "settings": "Monitoring settings",
-          "endpoint_guide": "Endpoint guide"
+          "endpoint_guide": "Endpoint guide",
+          "connection": "Server connection"
         }
       },
       "endpoint_guide": {
         "title": "Endpoint guide",
         "description": "{endpoint_descriptions}"
+      },
+      "connection": {
+        "title": "Server connection",
+        "description": "Home Assistant checks the new address before saving it.",
+        "data": {
+          "host": "Server address",
+          "port": "FRM HTTP port"
+        }
       }
+    },
+    "error": {
+      "invalid_host": "Enter an IP address or hostname without a scheme or path.",
+      "cannot_connect": "Could not read /getSessionInfo from this server.",
+      "already_configured": "This server is already configured."
     }
   }
 }

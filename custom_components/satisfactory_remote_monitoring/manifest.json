@@ -1,11 +1,14 @@
 {
   "domain": "satisfactory_remote_monitoring",
   "name": "Satisfactory Remote Monitoring",
-  "version": "0.4.11",
+  "codeowners": [
+    "@gert-bezuidenhout"
+  ],
   "config_flow": true,
-  "iot_class": "local_polling",
+  "documentation": "https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring",
   "integration_type": "service",
-  "documentation": "https://docs.ficsit.app/ficsitremotemonitoring/latest/index.html",
-  "codeowners": [],
-  "requirements": []
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring/issues",
+  "requirements": [],
+  "version": "0.4.12"
 }
