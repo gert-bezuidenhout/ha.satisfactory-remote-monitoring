@@ -164,8 +164,8 @@ class SatisfactorySummaryCard extends HTMLElement {
         ha-card { padding:16px; text-align:center; }
         .ticket { position:relative; aspect-ratio:640/356; max-width:444px; margin:auto; container-type:inline-size; }
         .ticket img { display:block; width:100%; }
-        .ticket output { position:absolute; top:61%; left:50%; transform:translate(-50%,-50%);
-          color:white; font:700 clamp(14px,14cqw,60px)/1 Roboto,Arial,sans-serif; }
+        .ticket output { position:absolute; top:59.5%; left:50%; transform:translate(-50%,-50%);
+          color:white; font:700 clamp(14px,13cqw,57px)/1 Roboto,Arial,sans-serif; }
         .power { display:grid; grid-template-columns:clamp(42px,20%,84px) minmax(0,1fr);
           align-items:start; gap:12px; text-align:left; }
         .pylon { display:block; width:100%; max-height:96px; object-fit:contain; }
