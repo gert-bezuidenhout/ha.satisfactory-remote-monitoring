@@ -1,10 +1,25 @@
 """Ficsit Remote Monitoring integration."""
+from pathlib import Path
+
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import Platform
 
 from .coordinator import FrmCoordinator
 from .factory import FactoryCoordinator
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
+
+
+async def async_setup(hass, config):
+    """Serve the bundled dashboard cards once per Home Assistant startup."""
+    assets = Path(__file__).parent / "dashboard"
+    url = "/satisfactory_remote_monitoring/dashboard"
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(url, str(assets), False),
+    ])
+    add_extra_js_url(hass, f"{url}/cards.js")
+    return True
 
 
 async def async_setup_entry(hass, entry):
