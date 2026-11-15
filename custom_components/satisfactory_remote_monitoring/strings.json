@@ -43,7 +43,8 @@
         "menu_options": {
           "settings": "Monitoring settings",
           "endpoint_guide": "Endpoint guide",
-          "connection": "Server connection"
+          "connection": "Server connection",
+          "stale_players": "Remove stale player entities"
         }
       },
       "endpoint_guide": {
@@ -57,12 +58,22 @@
           "host": "Server address",
           "port": "FRM HTTP port"
         }
+      },
+      "stale_players": {
+        "title": "Remove stale player entities",
+        "description": "Select missing players and submit to remove their Health, Online, and Dead entities from Home Assistant.",
+        "data": {
+          "stale_players": "Missing players"
+        }
       }
     },
     "error": {
       "invalid_host": "Enter an IP address or hostname without a scheme or path.",
       "cannot_connect": "Could not read /getSessionInfo from this server.",
-      "already_configured": "This server is already configured."
+      "already_configured": "This server is already configured.",
+      "player_refresh_failed": "Could not verify the current player list from FRM.",
+      "player_list_changed": "The player list changed. Review your selection again.",
+      "no_stale_players": "No stale player entities found."
     }
   }
 }
