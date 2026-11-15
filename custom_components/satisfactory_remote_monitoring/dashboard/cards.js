@@ -1,7 +1,18 @@
-const prefix = "sensor.satisfactory_192_168_8_50_8080_";
-const isPlayer = id => id.startsWith(prefix) && id.endsWith("_health");
-const playerName = state => (state.attributes.friendly_name || state.entity_id.slice(prefix.length, -7))
-  .replace(/^Satisfactory\s*\([^)]*\)\s*/i, "").replace(/\s+health$/i, "");
+const playerName = state => (state.attributes.friendly_name || state.entity_id.split(".")[1])
+  .replace(/^Satisfactory\s*\([^)]*\)\s*/i, "").replace(/(?:\s+|_)(?:health|online|dead)$/i, "");
+
+function discoverPlayers(states = {}) {
+  const players = new Map();
+  for (const state of Object.values(states)) {
+    const match = /^(sensor|binary_sensor)\.(satisfactory_.+)_(health|online|dead)$/.exec(state.entity_id);
+    if (!match) continue;
+    const [, domain, base, metric] = match;
+    if ((metric === "health") !== (domain === "sensor")) continue;
+    const id = `sensor.${base}_health`;
+    if (metric === "health" || !players.has(id)) players.set(id, playerName(state));
+  }
+  return [...players].sort((a, b) => a[1].localeCompare(b[1]));
+}
 
 class SatisfactoryPlayerCard extends HTMLElement {
   static getConfigElement() {
@@ -9,7 +20,7 @@ class SatisfactoryPlayerCard extends HTMLElement {
   }
 
   static getStubConfig(hass) {
-    return { entity: Object.keys(hass?.states || {}).find(isPlayer) || "" };
+    return { entity: discoverPlayers(hass?.states)[0]?.[0] || "" };
   }
 
   constructor() {
@@ -64,7 +75,8 @@ class SatisfactoryPlayerCard extends HTMLElement {
     const raw = player?.state;
     const known = Boolean(raw?.trim()) && Number.isFinite(Number(raw));
     const hp = known ? Math.max(0, Math.min(100, Number(raw))) : 0;
-    root.querySelector("strong").textContent = player ? playerName(player)
+    const playerState = player || states[`binary_sensor.${base}_online`] || states[`binary_sensor.${base}_dead`];
+    root.querySelector("strong").textContent = playerState ? playerName(playerState)
       : id ? "Player unavailable" : "Select a player";
     const status = root.getElementById("status");
     const presence = online === "on" ? "Online" : online === "off" ? "Offline" : "Status unavailable";
@@ -112,10 +124,7 @@ class SatisfactoryPlayerEditor extends HTMLElement {
 
   refresh() {
     const selected = this.config?.entity || "";
-    const players = Object.values(this.currentHass?.states || {})
-      .filter(state => isPlayer(state.entity_id))
-      .map(state => [state.entity_id, playerName(state)])
-      .sort((a, b) => a[1].localeCompare(b[1]));
+    const players = discoverPlayers(this.currentHass?.states);
     const signature = JSON.stringify([selected, players]);
     if (signature === this.signature) return;
     this.signature = signature;
@@ -154,15 +163,20 @@ class SatisfactorySummaryCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ha-card { padding:16px; text-align:center; }
-        .ticket { background:linear-gradient(#f5a044 45%,#b65119 45%); color:white;
-          border:2px solid #ffcc77; border-radius:12px; padding:14px; }
-        strong { font-size:1.1rem; } output { display:block; font-size:2.4rem; font-weight:700; }
+        .ticket { position:relative; aspect-ratio:444/224; max-width:444px; margin:auto; container-type:inline-size; }
+        .ticket img { display:block; width:100%; }
+        .ticket output { position:absolute; top:61%; left:50%; transform:translate(-50%,-50%);
+          color:white; font:700 clamp(14px,14cqw,60px)/1 Roboto,Arial,sans-serif; }
+        .pylon { display:block; width:84px; height:84px; object-fit:contain; margin:0 auto 6px; }
+        strong { font-size:1.1rem; } 
         ha-icon { color:#ffbf50; --mdc-icon-size:46px; }
         dl { margin:10px 0 0; } dt { font-weight:700; margin-top:8px; } dd { margin:2px 0; }
       </style>
       <ha-card>${coupon
-        ? '<div class="ticket"><strong>FICSIT COUPON</strong><output></output>Printable Coupons</div>'
-        : '<ha-icon icon="mdi:transmission-tower"></ha-icon><div><strong>Circuit Power</strong></div><dl></dl>'}</ha-card>`;
+        ? '<div class="ticket"><img alt="FICSIT Printable Coupons"><output></output></div>'
+        : '<img class="pylon" alt=""><div><strong>Circuit Power</strong></div><dl></dl>'}</ha-card>`;
+    this.shadowRoot.querySelector("img").src =
+      new URL(coupon ? "./coupon-popup.png" : "./power-pylon.png", import.meta.url).href;
     if (coupon) {
       const value = entity?.state;
       this.shadowRoot.querySelector("output").textContent =
