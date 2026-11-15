@@ -1,7 +1,18 @@
-const prefix = "sensor.satisfactory_192_168_8_50_8080_";
-const isPlayer = id => id.startsWith(prefix) && id.endsWith("_health");
-const playerName = state => (state.attributes.friendly_name || state.entity_id.slice(prefix.length, -7))
-  .replace(/^Satisfactory\s*\([^)]*\)\s*/i, "").replace(/\s+health$/i, "");
+const playerName = state => (state.attributes.friendly_name || state.entity_id.split(".")[1])
+  .replace(/^Satisfactory\s*\([^)]*\)\s*/i, "").replace(/(?:\s+|_)(?:health|online|dead)$/i, "");
+
+function discoverPlayers(states = {}) {
+  const players = new Map();
+  for (const state of Object.values(states)) {
+    const match = /^(sensor|binary_sensor)\.(satisfactory_.+)_(health|online|dead)$/.exec(state.entity_id);
+    if (!match) continue;
+    const [, domain, base, metric] = match;
+    if ((metric === "health") !== (domain === "sensor")) continue;
+    const id = `sensor.${base}_health`;
+    if (metric === "health" || !players.has(id)) players.set(id, playerName(state));
+  }
+  return [...players].sort((a, b) => a[1].localeCompare(b[1]));
+}
 
 class SatisfactoryPlayerCard extends HTMLElement {
   static getConfigElement() {
@@ -9,7 +20,7 @@ class SatisfactoryPlayerCard extends HTMLElement {
   }
 
   static getStubConfig(hass) {
-    return { entity: Object.keys(hass?.states || {}).find(isPlayer) || "" };
+    return { entity: discoverPlayers(hass?.states)[0]?.[0] || "" };
   }
 
   constructor() {
@@ -26,7 +37,7 @@ class SatisfactoryPlayerCard extends HTMLElement {
         .slot { display:grid; grid-template-rows:18px 2px; gap:3px; }
         .slot > i { background:linear-gradient(to right,#fff var(--fill),#656565 var(--fill)); }
         .slot > b { background:#f39a32; }
-        img { width:100%; height:250px; object-fit:contain; }
+
       </style>
       <ha-card>
         <header><strong></strong><span id="status"></span></header>
@@ -35,13 +46,12 @@ class SatisfactoryPlayerCard extends HTMLElement {
           ${'<span class="slot"><i></i><b></b></span>'.repeat(10)}
         </div>
         <div id="hp"></div>
-        <img alt="Satisfactory Pioneer">
+
       </ha-card>`;
   }
 
   setConfig(config) {
     this.config = config;
-    this.shadowRoot.querySelector("img").src = config.image || new URL("./pioneer.png", import.meta.url).href;
     this.render();
   }
 
@@ -50,7 +60,7 @@ class SatisfactoryPlayerCard extends HTMLElement {
     this.render();
   }
 
-  getCardSize() { return 5; }
+  getCardSize() { return 2; }
 
   render() {
     if (!this.config || !this.currentHass) return;
@@ -64,14 +74,15 @@ class SatisfactoryPlayerCard extends HTMLElement {
     const raw = player?.state;
     const known = Boolean(raw?.trim()) && Number.isFinite(Number(raw));
     const hp = known ? Math.max(0, Math.min(100, Number(raw))) : 0;
-    root.querySelector("strong").textContent = player ? playerName(player)
+    const playerState = player || states[`binary_sensor.${base}_online`] || states[`binary_sensor.${base}_dead`];
+    root.querySelector("strong").textContent = playerState ? playerName(playerState)
       : id ? "Player unavailable" : "Select a player";
     const status = root.getElementById("status");
     const presence = online === "on" ? "Online" : online === "off" ? "Offline" : "Status unavailable";
     status.textContent = dead ? `${presence} � Dead` : presence;
     status.style.color = dead ? "#ff4848" : online === "on" ? "#65d98a" : "var(--secondary-text-color)";
     root.querySelector("ha-icon").style.color = dead ? "#ff3131" : "#fff";
-    root.getElementById("bar").setAttribute("aria-label", known ? `${hp} of 100 HP` : "Health unavailable");
+    root.getElementById("bar").setAttribute("aria-label", known ? `${Math.ceil(hp)} of 100 HP` : "Health unavailable");
     root.getElementById("hp").textContent = `${known ? hp : "-"} / 100 HP`;
     root.querySelectorAll(".slot").forEach((slot, index) => {
       const fill = Math.max(0, Math.min(10, hp - index * 10)) * 10;
@@ -112,10 +123,7 @@ class SatisfactoryPlayerEditor extends HTMLElement {
 
   refresh() {
     const selected = this.config?.entity || "";
-    const players = Object.values(this.currentHass?.states || {})
-      .filter(state => isPlayer(state.entity_id))
-      .map(state => [state.entity_id, playerName(state)])
-      .sort((a, b) => a[1].localeCompare(b[1]));
+    const players = discoverPlayers(this.currentHass?.states);
     const signature = JSON.stringify([selected, players]);
     if (signature === this.signature) return;
     this.signature = signature;
@@ -134,7 +142,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "satisfactory-player-card",
   name: "Satisfactory Player",
-  description: "Show a player's Pioneer, health, and online status.",
+  description: "Show a player's health and online status.",
 });
 }
 
@@ -154,15 +162,23 @@ class SatisfactorySummaryCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ha-card { padding:16px; text-align:center; }
-        .ticket { background:linear-gradient(#f5a044 45%,#b65119 45%); color:white;
-          border:2px solid #ffcc77; border-radius:12px; padding:14px; }
-        strong { font-size:1.1rem; } output { display:block; font-size:2.4rem; font-weight:700; }
+        .ticket { position:relative; aspect-ratio:640/356; max-width:444px; margin:auto; container-type:inline-size; }
+        .ticket img { display:block; width:100%; }
+        .ticket output { position:absolute; top:61%; left:50%; transform:translate(-50%,-50%);
+          color:white; font:700 clamp(14px,14cqw,60px)/1 Roboto,Arial,sans-serif; }
+        .power { display:grid; grid-template-columns:clamp(42px,20%,84px) minmax(0,1fr);
+          align-items:start; gap:12px; text-align:left; }
+        .pylon { display:block; width:100%; max-height:96px; object-fit:contain; }
+        .power dl { overflow-wrap:anywhere; }
+        strong { font-size:1.1rem; } 
         ha-icon { color:#ffbf50; --mdc-icon-size:46px; }
         dl { margin:10px 0 0; } dt { font-weight:700; margin-top:8px; } dd { margin:2px 0; }
       </style>
       <ha-card>${coupon
-        ? '<div class="ticket"><strong>FICSIT COUPON</strong><output></output>Printable Coupons</div>'
-        : '<ha-icon icon="mdi:transmission-tower"></ha-icon><div><strong>Circuit Power</strong></div><dl></dl>'}</ha-card>`;
+        ? '<div class="ticket"><img alt="FICSIT Printable Coupons"><output></output></div>'
+        : '<div class="power"><img class="pylon" alt=""><div><strong>Circuit Power</strong><dl></dl></div></div>'}</ha-card>`;
+    this.shadowRoot.querySelector("img").src =
+      new URL(coupon ? "./coupon-popup.png" : "./power-pylon.png", import.meta.url).href;
     if (coupon) {
       const value = entity?.state;
       this.shadowRoot.querySelector("output").textContent =
@@ -194,4 +210,59 @@ for (const [type, name] of [
     });
     (window.customCards ||= []).push({ type, name });
   }
+}
+
+class SatisfactoryPlayersCard extends HTMLElement {
+  static getStubConfig() { return {}; }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML = `
+      <style>
+        ha-card { padding: 12px; }
+        h2 { margin: 0 0 8px; font-size: 1rem; }
+        #players { display: grid; gap: 8px; }
+        p { margin: 0; color: var(--secondary-text-color); }
+        p[hidden] { display: none; }
+        satisfactory-player-card {
+          display: block;
+          --ha-card-border-width: 0px;
+          --ha-card-box-shadow: none;
+        }
+      </style>
+      <ha-card><h2>Satisfactory Players</h2><div id="players"></div>
+        <p hidden>No Satisfactory players found.</p></ha-card>`;
+  }
+
+  setConfig() {}
+
+  set hass(hass) {
+    const players = discoverPlayers(hass.states);
+    const list = this.shadowRoot.getElementById("players");
+    const ids = players.map(([id]) => id);
+    const signature = JSON.stringify(ids);
+    if (signature !== this.playerSignature) {
+      list.replaceChildren(...ids.map(entity => {
+        const card = document.createElement("satisfactory-player-card");
+        card.setConfig({ entity });
+        return card;
+      }));
+      this.playerSignature = signature;
+    }
+    for (const card of list.children) card.hass = hass;
+    this.shadowRoot.querySelector("p").hidden = ids.length > 0;
+  }
+
+  getCardSize() {
+    return 1 + 2 * this.shadowRoot.getElementById("players").childElementCount;
+  }
+}
+
+if (!customElements.get("satisfactory-players-card")) {
+  customElements.define("satisfactory-players-card", SatisfactoryPlayersCard);
+  (window.customCards ||= []).push({
+    type: "satisfactory-players-card",
+    name: "Satisfactory Players",
+    description: "Show all discovered Satisfactory players and their health.",
+  });
 }
