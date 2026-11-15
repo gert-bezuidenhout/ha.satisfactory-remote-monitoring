@@ -208,3 +208,58 @@ for (const [type, name] of [
     (window.customCards ||= []).push({ type, name });
   }
 }
+
+class SatisfactoryPlayersCard extends HTMLElement {
+  static getStubConfig() { return {}; }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML = `
+      <style>
+        ha-card { padding: 12px; }
+        h2 { margin: 0 0 8px; font-size: 1rem; }
+        #players { display: grid; gap: 8px; }
+        p { margin: 0; color: var(--secondary-text-color); }
+        p[hidden] { display: none; }
+        satisfactory-player-card {
+          display: block;
+          --ha-card-border-width: 0px;
+          --ha-card-box-shadow: none;
+        }
+      </style>
+      <ha-card><h2>Satisfactory Players</h2><div id="players"></div>
+        <p hidden>No Satisfactory players found.</p></ha-card>`;
+  }
+
+  setConfig() {}
+
+  set hass(hass) {
+    const players = discoverPlayers(hass.states);
+    const list = this.shadowRoot.getElementById("players");
+    const ids = players.map(([id]) => id);
+    const signature = JSON.stringify(ids);
+    if (signature !== this.playerSignature) {
+      list.replaceChildren(...ids.map(entity => {
+        const card = document.createElement("satisfactory-player-card");
+        card.setConfig({ entity });
+        return card;
+      }));
+      this.playerSignature = signature;
+    }
+    for (const card of list.children) card.hass = hass;
+    this.shadowRoot.querySelector("p").hidden = ids.length > 0;
+  }
+
+  getCardSize() {
+    return 1 + 2 * this.shadowRoot.getElementById("players").childElementCount;
+  }
+}
+
+if (!customElements.get("satisfactory-players-card")) {
+  customElements.define("satisfactory-players-card", SatisfactoryPlayersCard);
+  (window.customCards ||= []).push({
+    type: "satisfactory-players-card",
+    name: "Satisfactory Players",
+    description: "Show all discovered Satisfactory players and their health.",
+  });
+}
