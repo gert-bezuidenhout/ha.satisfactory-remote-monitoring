@@ -83,7 +83,7 @@ class SatisfactoryPlayerCard extends HTMLElement {
     status.textContent = dead ? `${presence} � Dead` : presence;
     status.style.color = dead ? "#ff4848" : online === "on" ? "#65d98a" : "var(--secondary-text-color)";
     root.querySelector("ha-icon").style.color = dead ? "#ff3131" : "#fff";
-    root.getElementById("bar").setAttribute("aria-label", known ? `${hp} of 100 HP` : "Health unavailable");
+    root.getElementById("bar").setAttribute("aria-label", known ? `${Math.ceil(hp)} of 100 HP` : "Health unavailable");
     root.getElementById("hp").textContent = `${known ? hp : "-"} / 100 HP`;
     root.querySelectorAll(".slot").forEach((slot, index) => {
       const fill = Math.max(0, Math.min(10, hp - index * 10)) * 10;
