@@ -199,10 +199,15 @@ class SatisfactorySummaryCard extends HTMLElement {
     const device = registry?.[entity?.entity_id]?.device_id;
     for (const [id, state] of Object.entries(this.currentHass.states)) {
       const match = /^binary_sensor\.satisfactory_.+_circuit_group_(\d+)_fuse_tripped$/.exec(id);
-      if (!match || state.state !== "on") continue;
+      if (!match) continue;
       if (device && registry?.[id]?.device_id !== device) continue;
       const group = `CIRCUIT GROUP ${match[1]}`;
-      groups.set(group, { ...groups.get(group), tripped: true });
+      const data = groups.get(group);
+      groups.set(group, {
+        ...data,
+        tripped: data?.tripped || state.state === "on",
+        fuseKnown: data?.fuseKnown || state.state === "on" || state.state === "off",
+      });
     }
 
     const sortedGroups = [...groups].sort(([a], [b]) =>
@@ -212,13 +217,11 @@ class SatisfactorySummaryCard extends HTMLElement {
       const value = document.createElement("dd");
       title.textContent = group;
       if (data.tripped) {
-        const status = document.createElement("span");
-        status.className = "tripped";
-        status.textContent = "Tripped";
-        value.append(status);
-        if (data.reading) value.append(` · ${data.reading}`);
+        title.className = "tripped";
+        value.className = "tripped";
+        value.textContent = data.reading ? `Tripped · ${data.reading}` : "Tripped";
       } else {
-        value.textContent = data.reading;
+        value.textContent = data.reading || (data.fuseKnown ? "Power readings unavailable" : "Fuse status unavailable");
       }
       list.append(title, value);
     }
