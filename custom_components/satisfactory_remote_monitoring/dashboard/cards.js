@@ -164,12 +164,13 @@ class SatisfactorySummaryCard extends HTMLElement {
         ha-card { padding:16px; text-align:center; }
         .ticket { position:relative; aspect-ratio:640/356; max-width:444px; margin:auto; container-type:inline-size; }
         .ticket img { display:block; width:100%; }
-        .ticket output { position:absolute; top:61%; left:50%; transform:translate(-50%,-50%);
-          color:white; font:700 clamp(14px,14cqw,60px)/1 Roboto,Arial,sans-serif; }
+        .ticket output { position:absolute; top:59.5%; left:50%; transform:translate(-50%,-50%);
+          color:white; font:700 clamp(14px,13cqw,57px)/1 Roboto,Arial,sans-serif; }
         .power { display:grid; grid-template-columns:clamp(42px,20%,84px) minmax(0,1fr);
           align-items:start; gap:12px; text-align:left; }
         .pylon { display:block; width:100%; max-height:96px; object-fit:contain; }
         .power dl { overflow-wrap:anywhere; }
+        .tripped { color:var(--error-color, #ff5353); font-weight:700; }
         strong { font-size:1.1rem; } 
         ha-icon { color:#ffbf50; --mdc-icon-size:46px; }
         dl { margin:10px 0 0; } dt { font-weight:700; margin-top:8px; } dd { margin:2px 0; }
@@ -186,14 +187,42 @@ class SatisfactorySummaryCard extends HTMLElement {
       return;
     }
     const list = this.shadowRoot.querySelector("dl");
+    const groups = new Map();
     const rows = entity?.attributes.display_rows;
     for (const row of typeof rows === "string" ? rows.split(";") : []) {
       const [group, capacity, max] = row.split("|").map(value => value.trim());
       if (!group || !capacity || !max) continue;
+      groups.set(group.toUpperCase(), { reading: `${max} MAX / ${capacity} CAP` });
+    }
+
+    const registry = this.currentHass.entities;
+    const device = registry?.[entity?.entity_id]?.device_id;
+    for (const [id, state] of Object.entries(this.currentHass.states)) {
+      const match = /^binary_sensor\.satisfactory_.+_circuit_group_(\d+)_fuse_tripped$/.exec(id);
+      if (!match) continue;
+      if (device && registry?.[id]?.device_id !== device) continue;
+      const group = `CIRCUIT GROUP ${match[1]}`;
+      const data = groups.get(group);
+      groups.set(group, {
+        ...data,
+        tripped: data?.tripped || state.state === "on",
+        fuseKnown: data?.fuseKnown || state.state === "on" || state.state === "off",
+      });
+    }
+
+    const sortedGroups = [...groups].sort(([a], [b]) =>
+      a.localeCompare(b, undefined, { numeric: true }));
+    for (const [group, data] of sortedGroups) {
       const title = document.createElement("dt");
       const value = document.createElement("dd");
       title.textContent = group;
-      value.textContent = `${max} MAX / ${capacity} CAP`;
+      if (data.tripped) {
+        title.className = "tripped";
+        value.className = "tripped";
+        value.textContent = data.reading ? `Tripped · ${data.reading}` : "Tripped";
+      } else {
+        value.textContent = data.reading || (data.fuseKnown ? "Power readings unavailable" : "Fuse status unavailable");
+      }
       list.append(title, value);
     }
     if (!list.children.length) list.textContent = "No circuit data";
