@@ -6,9 +6,10 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import SelectSelector
 
-from .coordinator import DOMAIN, endpoint, fetch_session
+from .coordinator import DOMAIN, endpoint, fetch_json, fetch_session
 from .endpoints import ENDPOINT_DESCRIPTIONS, READ_ENDPOINTS
 from .factory import DEFAULT_ENDPOINTS, SELECTABLE
 
@@ -61,7 +62,7 @@ class FrmOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         return self.async_show_menu(
-            step_id="init", menu_options=["settings", "connection", "endpoint_guide"]
+            step_id="init", menu_options=["settings", "connection", "stale_players", "endpoint_guide"]
         )
 
     async def async_step_connection(self, user_input=None):
@@ -101,6 +102,61 @@ class FrmOptionsFlow(config_entries.OptionsFlow):
                     vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
             }),
             errors=errors,
+        )
+
+    async def async_step_stale_players(self, user_input=None):
+        """Remove explicitly selected players absent from a fresh FRM response."""
+        entry = self.config_entry
+        try:
+            rows = await fetch_json(self.hass, entry.data, "getPlayer")
+            if not isinstance(rows, list) or any(
+                not isinstance(row, dict) or not isinstance(row.get("ID"), str)
+                or not row["ID"] for row in rows
+            ):
+                raise ValueError("Invalid FRM player list")
+        except (ClientError, asyncio.TimeoutError, ValueError):
+            return self.async_show_form(
+                step_id="stale_players", data_schema=vol.Schema({}),
+                errors={"base": "player_refresh_failed"},
+            )
+
+        current = {row["ID"] for row in rows}
+        monitored = entry.options.get("players", [])
+        registry = er.async_get(self.hass)
+        prefix = f"{entry.entry_id}_factory_players_"
+        domains = {"health": "sensor", "online": "binary_sensor", "dead": "binary_sensor"}
+        registered = {}
+        for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+            if entity.platform != DOMAIN or not entity.unique_id.startswith(prefix):
+                continue
+            player, _, metric = entity.unique_id[len(prefix):].rpartition("_")
+            if player and player != "None" and domains.get(metric) == entity.domain:
+                registered.setdefault(player, []).append(entity.entity_id)
+
+        missing = (set(monitored) | registered.keys()) - current
+        errors = {}
+        if user_input is not None:
+            selected = set(user_input.get("stale_players", []))
+            if selected and selected <= missing:
+                options = {**entry.options, "players": [
+                    player for player in monitored if player not in selected
+                ]}
+                for player in selected:
+                    for entity_id in registered.get(player, []):
+                        registry.async_remove(entity_id)
+                return self.async_create_entry(title="", data=options)
+            if selected:
+                errors["base"] = "player_list_changed"
+
+        fields = {}
+        if missing:
+            fields[vol.Required("stale_players", default=[])] = SelectSelector({
+                "options": sorted(missing), "multiple": True,
+            })
+        elif not errors:
+            errors["base"] = "no_stale_players"
+        return self.async_show_form(
+            step_id="stale_players", data_schema=vol.Schema(fields), errors=errors,
         )
 
     async def async_step_endpoint_guide(self, user_input=None):
