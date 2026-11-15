@@ -14,15 +14,7 @@ function discoverPlayers(states = {}) {
   return [...players].sort((a, b) => a[1].localeCompare(b[1]));
 }
 
-class SatisfactoryPlayerCard extends HTMLElement {
-  static getConfigElement() {
-    return document.createElement("satisfactory-player-editor");
-  }
-
-  static getStubConfig(hass) {
-    return { entity: discoverPlayers(hass?.states)[0]?.[0] || "" };
-  }
-
+class SatisfactoryPlayerRow extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" }).innerHTML = `
@@ -91,23 +83,67 @@ class SatisfactoryPlayerCard extends HTMLElement {
   }
 }
 
+
+function selectedPlayers(config) {
+  const ids = Array.isArray(config?.entities) ? config.entities : [config?.entity];
+  return [...new Set(ids.filter(id => typeof id === "string" && id))];
+}
+
+class SatisfactoryPlayerCard extends HTMLElement {
+  static getConfigElement() {
+    return document.createElement("satisfactory-player-editor");
+  }
+
+  static getStubConfig(hass) {
+    return { entity: discoverPlayers(hass?.states)[0]?.[0] || "" };
+  }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML =
+      '<style>:host{display:grid;gap:8px;min-width:0}</style><div id="rows" style="display:grid;gap:8px"></div>';
+  }
+
+  setConfig(config) {
+    const ids = selectedPlayers(config);
+    this.size = Math.max(1, ids.length);
+    const rows = ids.length ? ids : [""];
+    this.shadowRoot.getElementById("rows").replaceChildren(...rows.map(entity => {
+      const row = document.createElement("satisfactory-player-row");
+      row.setConfig({ entity });
+      if (this.currentHass) row.hass = this.currentHass;
+      return row;
+    }));
+  }
+
+  set hass(hass) {
+    this.currentHass = hass;
+    for (const row of this.shadowRoot.getElementById("rows").children) row.hass = hass;
+  }
+
+  getCardSize() { return 2 * (this.size || 1); }
+}
+
 class SatisfactoryPlayerEditor extends HTMLElement {
   constructor() {
     super();
     const root = this.attachShadow({ mode: "open" });
     root.innerHTML = `
       <style>
-        label { display:grid; gap:6px; }
-        select { width:100%; padding:10px; color:var(--primary-text-color);
+        #choices { display:grid; gap:8px; margin:6px 0 8px; }
+        .choice { display:flex; gap:8px; }
+        select { flex:1; min-width:0; padding:10px; color:var(--primary-text-color);
           background:var(--card-background-color); border:1px solid var(--divider-color); }
+        button { padding:8px; color:var(--primary-color); background:transparent;
+          border:1px solid var(--divider-color); border-radius:4px; cursor:pointer; }
+        button:disabled { opacity:.45; cursor:default; }
       </style>
-      <label>Player<select></select></label>`;
-    this.select = root.querySelector("select");
-    this.select.addEventListener("change", () => {
-      this.config = { ...this.config, entity: this.select.value };
-      this.dispatchEvent(new CustomEvent("config-changed", {
-        detail: { config: this.config }, bubbles: true, composed: true,
-      }));
+      <div>Players</div><div id="choices"></div><button id="add" type="button">+ Add player</button>`;
+    this.add = root.getElementById("add");
+    this.add.addEventListener("click", () => {
+      const ids = selectedPlayers(this.config);
+      const next = discoverPlayers(this.currentHass?.states).find(([id]) => !ids.includes(id));
+      if (next) this.save([...ids, next[0]]);
     });
   }
 
@@ -121,21 +157,56 @@ class SatisfactoryPlayerEditor extends HTMLElement {
     this.refresh();
   }
 
+  save(ids) {
+    const { entity, entities, ...config } = this.config || {};
+    this.config = { ...config, entities: ids };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: this.config }, bubbles: true, composed: true,
+    }));
+  }
+
   refresh() {
-    const selected = this.config?.entity || "";
+    const ids = selectedPlayers(this.config);
     const players = discoverPlayers(this.currentHass?.states);
-    const signature = JSON.stringify([selected, players]);
+    const signature = JSON.stringify([ids, players]);
     if (signature === this.signature) return;
     this.signature = signature;
-    this.select.replaceChildren(new Option("Select a player", ""));
-    for (const [id, name] of players) this.select.add(new Option(name, id));
-    if (selected && !players.some(([id]) => id === selected))
-      this.select.add(new Option(`${selected} (unavailable)`, selected));
-    this.select.value = selected;
+    this.add.disabled = !players.some(([id]) => !ids.includes(id));
+    const choices = this.shadowRoot.getElementById("choices");
+    choices.replaceChildren();
+    for (const [index, selected] of (ids.length ? ids : [""]).entries()) {
+      const row = document.createElement("div");
+      row.className = "choice";
+      const select = document.createElement("select");
+      select.setAttribute("aria-label", `Player ${index + 1}`);
+      if (!selected) select.add(new Option("Select a player", ""));
+      for (const [id, name] of players)
+        if (id === selected || !ids.includes(id)) select.add(new Option(name, id));
+      if (selected && !players.some(([id]) => id === selected))
+        select.add(new Option(`${selected} (unavailable)`, selected));
+      select.value = selected;
+      select.addEventListener("change", () => {
+        const updated = [...ids];
+        updated[index] = select.value;
+        this.save(updated.filter(Boolean));
+      });
+      row.append(select);
+      if (selected) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.setAttribute("aria-label", `Remove player ${index + 1}`);
+        remove.addEventListener("click", () => this.save(ids.filter(id => id !== selected)));
+        row.append(remove);
+      }
+      choices.append(row);
+    }
   }
 }
 
 if (!customElements.get("satisfactory-player-card")) {
+customElements.define("satisfactory-player-row", SatisfactoryPlayerRow);
 customElements.define("satisfactory-player-card", SatisfactoryPlayerCard);
 customElements.define("satisfactory-player-editor", SatisfactoryPlayerEditor);
 window.customCards = window.customCards || [];
