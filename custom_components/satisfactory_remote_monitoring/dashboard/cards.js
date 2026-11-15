@@ -37,7 +37,7 @@ class SatisfactoryPlayerCard extends HTMLElement {
         .slot { display:grid; grid-template-rows:18px 2px; gap:3px; }
         .slot > i { background:linear-gradient(to right,#fff var(--fill),#656565 var(--fill)); }
         .slot > b { background:#f39a32; }
-        img { width:100%; height:250px; object-fit:contain; }
+
       </style>
       <ha-card>
         <header><strong></strong><span id="status"></span></header>
@@ -46,13 +46,12 @@ class SatisfactoryPlayerCard extends HTMLElement {
           ${'<span class="slot"><i></i><b></b></span>'.repeat(10)}
         </div>
         <div id="hp"></div>
-        <img alt="Satisfactory Pioneer">
+
       </ha-card>`;
   }
 
   setConfig(config) {
     this.config = config;
-    this.shadowRoot.querySelector("img").src = config.image || new URL("./pioneer.png", import.meta.url).href;
     this.render();
   }
 
@@ -61,7 +60,7 @@ class SatisfactoryPlayerCard extends HTMLElement {
     this.render();
   }
 
-  getCardSize() { return 5; }
+  getCardSize() { return 2; }
 
   render() {
     if (!this.config || !this.currentHass) return;
@@ -143,7 +142,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "satisfactory-player-card",
   name: "Satisfactory Player",
-  description: "Show a player's Pioneer, health, and online status.",
+  description: "Show a player's health and online status.",
 });
 }
 
