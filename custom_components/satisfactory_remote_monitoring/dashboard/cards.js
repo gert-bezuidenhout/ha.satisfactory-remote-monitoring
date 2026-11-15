@@ -170,6 +170,7 @@ class SatisfactorySummaryCard extends HTMLElement {
           align-items:start; gap:12px; text-align:left; }
         .pylon { display:block; width:100%; max-height:96px; object-fit:contain; }
         .power dl { overflow-wrap:anywhere; }
+        .tripped { color:var(--error-color, #ff5353); font-weight:700; }
         strong { font-size:1.1rem; } 
         ha-icon { color:#ffbf50; --mdc-icon-size:46px; }
         dl { margin:10px 0 0; } dt { font-weight:700; margin-top:8px; } dd { margin:2px 0; }
@@ -186,14 +187,39 @@ class SatisfactorySummaryCard extends HTMLElement {
       return;
     }
     const list = this.shadowRoot.querySelector("dl");
+    const groups = new Map();
     const rows = entity?.attributes.display_rows;
     for (const row of typeof rows === "string" ? rows.split(";") : []) {
       const [group, capacity, max] = row.split("|").map(value => value.trim());
       if (!group || !capacity || !max) continue;
+      groups.set(group.toUpperCase(), { reading: `${max} MAX / ${capacity} CAP` });
+    }
+
+    const registry = this.currentHass.entities;
+    const device = registry?.[entity?.entity_id]?.device_id;
+    for (const [id, state] of Object.entries(this.currentHass.states)) {
+      const match = /^binary_sensor\.satisfactory_.+_circuit_group_(\d+)_fuse_tripped$/.exec(id);
+      if (!match || state.state !== "on") continue;
+      if (device && registry?.[id]?.device_id !== device) continue;
+      const group = `CIRCUIT GROUP ${match[1]}`;
+      groups.set(group, { ...groups.get(group), tripped: true });
+    }
+
+    const sortedGroups = [...groups].sort(([a], [b]) =>
+      a.localeCompare(b, undefined, { numeric: true }));
+    for (const [group, data] of sortedGroups) {
       const title = document.createElement("dt");
       const value = document.createElement("dd");
       title.textContent = group;
-      value.textContent = `${max} MAX / ${capacity} CAP`;
+      if (data.tripped) {
+        const status = document.createElement("span");
+        status.className = "tripped";
+        status.textContent = "Tripped";
+        value.append(status);
+        if (data.reading) value.append(` · ${data.reading}`);
+      } else {
+        value.textContent = data.reading;
+      }
       list.append(title, value);
     }
     if (!list.children.length) list.textContent = "No circuit data";
