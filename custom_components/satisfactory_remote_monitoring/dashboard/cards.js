@@ -166,14 +166,17 @@ class SatisfactorySummaryCard extends HTMLElement {
         .ticket img { display:block; width:100%; }
         .ticket output { position:absolute; top:61%; left:50%; transform:translate(-50%,-50%);
           color:white; font:700 clamp(14px,14cqw,60px)/1 Roboto,Arial,sans-serif; }
-        .pylon { display:block; width:84px; height:84px; object-fit:contain; margin:0 auto 6px; }
+        .power { display:grid; grid-template-columns:clamp(42px,20%,84px) minmax(0,1fr);
+          align-items:start; gap:12px; text-align:left; }
+        .pylon { display:block; width:100%; max-height:96px; object-fit:contain; }
+        .power dl { overflow-wrap:anywhere; }
         strong { font-size:1.1rem; } 
         ha-icon { color:#ffbf50; --mdc-icon-size:46px; }
         dl { margin:10px 0 0; } dt { font-weight:700; margin-top:8px; } dd { margin:2px 0; }
       </style>
       <ha-card>${coupon
         ? '<div class="ticket"><img alt="FICSIT Printable Coupons"><output></output></div>'
-        : '<img class="pylon" alt=""><div><strong>Circuit Power</strong></div><dl></dl>'}</ha-card>`;
+        : '<div class="power"><img class="pylon" alt=""><div><strong>Circuit Power</strong><dl></dl></div></div>'}</ha-card>`;
     this.shadowRoot.querySelector("img").src =
       new URL(coupon ? "./coupon-popup.png" : "./power-pylon.png", import.meta.url).href;
     if (coupon) {
