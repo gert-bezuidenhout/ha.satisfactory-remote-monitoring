@@ -7,7 +7,41 @@ from aiohttp import ClientError
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 
 from .coordinator import fetch_json
-from .endpoints import READ_ENDPOINTS
+from .endpoints import ENDPOINT_DESCRIPTIONS, READ_ENDPOINTS
+
+ENDPOINT_SENSOR_NAMES = {
+    "getAll": "Combined FRM response records",
+    "getAssembler": "Assembler count",
+    "getBelts": "Conveyor belt count",
+    "getCables": "Power cable count",
+    "getChatMessages": "Recent chat message count",
+    "getDropPod": "Drop pod count",
+    "getResourceSinkBuilding": "AWESOME Sink building count",
+    "getPowerPoles": "Power pole count",
+    "getMapMarkers": "Map marker count",
+    "getModList": "Installed mod count",
+    "getUObjectCount": "Unreal object statistics records",
+    "getExplorationSink": "Exploration Sink statistics records",
+    "getDoggo": "Tamed Lizard Doggo count",
+    "getElevators": "Conveyor elevator count",
+    "getLifts": "Conveyor lift count",
+    "getHUBTerminal": "HUB terminal count",
+    "getParticle": "Particle accelerator count",
+    "getPowerSlug": "Loaded power slug count",
+    "getResearchTrees": "MAM research tree count",
+    "getSinkList": "Sinkable item count",
+    "getUnlockItems": "Unlockable collectible count",
+    "getTrainRails": "Train rail count",
+    "getVehiclePaths": "Vehicle path count",
+    "getPipeJunctions": "Pipe junction count",
+    "getPipes": "Pipe count",
+    "getCreatures": "Creature count",
+    "getGenerators": "Generator count",
+    "getRecipes": "Recipe count",
+    "getSchematics": "Schematic count",
+    "getTapes": "Music tape count",
+    "getVehicles": "Vehicle count",
+}
 from .power import number
 
 LOGGER = logging.getLogger(__name__)
@@ -258,7 +292,8 @@ def factory_entities(entry, sensor_type, binary_type, *, binary):
         specialized = {endpoint for endpoint, _ in ENDPOINTS.values()}
         for endpoint in options.get("read_endpoints", DEFAULT_ENDPOINTS):
             if endpoint in READ_ENDPOINTS and endpoint not in specialized | CORE_ENDPOINTS:
-                add(endpoint, None, "records", f"{endpoint} response records", lambda value: value)
+                label = ENDPOINT_SENSOR_NAMES.get(endpoint, f"{ENDPOINT_DESCRIPTIONS[endpoint]} count")
+                add(endpoint, None, "records", label, lambda value: value)
     return entities + switch_entities(entry, binary_type) if binary else entities
 
 
