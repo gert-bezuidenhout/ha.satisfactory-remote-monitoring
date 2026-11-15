@@ -5,6 +5,10 @@
     "@gert-bezuidenhout"
   ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
   "documentation": "https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring",
   "integration_type": "service",
   "iot_class": "local_polling",
