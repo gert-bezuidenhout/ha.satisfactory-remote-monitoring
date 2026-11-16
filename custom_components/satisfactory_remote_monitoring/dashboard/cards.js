@@ -503,7 +503,7 @@ class SatisfactoryStockCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this.prefix = config.entity_prefix;
+    this.entityPrefix = config.entity_prefix;
     this.update();
   }
 
@@ -515,7 +515,7 @@ class SatisfactoryStockCard extends HTMLElement {
   update() {
     if (!this.currentHass) return;
     const { states, language } = this.currentHass;
-    let prefix = this.prefix;
+    let prefix = this.entityPrefix;
     if (!prefix) {
       const sensorIds = Object.keys(states).filter(id => id.startsWith("sensor.satisfactory_")).sort();
       for (const id of sensorIds) {
