@@ -398,3 +398,147 @@ if (!customElements.get("satisfactory-players-card")) {
     description: "Show all discovered Satisfactory players and their health.",
   });
 }
+
+const stockSections = {
+  "Alien materials": [
+    [
+      "stinger-remains",
+      "Stinger Remains"
+    ],
+    [
+      "spitter-remains",
+      "Spitter Remains"
+    ],
+    [
+      "hog-remains",
+      "Hog Remains"
+    ],
+    [
+      "hatcher-remains",
+      "Hatcher Remains"
+    ],
+    [
+      "alien-protein",
+      "Alien Protein"
+    ],
+    [
+      "alien-dna-capsule",
+      "Alien DNA Capsule"
+    ]
+  ],
+  "Crash sites": [
+    [
+      "drop-pod",
+      "Drop Pods Reported",
+      "getdroppod_response_records"
+    ],
+    [
+      "hard-drive",
+      "Hard Drive"
+    ]
+  ],
+  "Alien artifacts": [
+    [
+      "somersloop",
+      "Somersloop"
+    ],
+    [
+      "mercer-sphere",
+      "Mercer Sphere"
+    ]
+  ]
+};
+
+class SatisfactoryStockCard extends HTMLElement {
+  static getStubConfig() { return {}; }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML = `
+      <style>
+        ha-card { padding:16px; }
+        h2 { margin:0 0 14px; font-size:1.15rem; }
+        h3 { margin:16px 0 8px; color:var(--secondary-text-color); font-size:.85rem; }
+        ul { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));
+          gap:8px; margin:0; padding:0; list-style:none; }
+        li { display:grid; grid-template-columns:36px minmax(0,1fr); align-items:center;
+          gap:9px; padding:8px; border:1px solid var(--divider-color); border-radius:8px; }
+        img { width:36px; height:36px; object-fit:contain; }
+        strong, span { display:block; overflow-wrap:anywhere; }
+        span { color:var(--secondary-text-color); font-size:.8rem; }
+        strong { font-variant-numeric:tabular-nums; }
+      </style>
+      <ha-card><h2>Satisfactory Stock Levels</h2><div></div></ha-card>`;
+    this.items = new Map();
+    const output = this.shadowRoot.querySelector("ha-card > div");
+    for (const [title, items] of Object.entries(stockSections)) {
+      const section = document.createElement("section");
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      const list = document.createElement("ul");
+      for (const [key, name, suffix] of items) {
+        const tile = document.createElement("li");
+        const icon = document.createElement("img");
+        const url = new URL(`./stock/${key}.${key === "drop-pod" ? "jpeg" : "webp"}`, import.meta.url);
+        url.search = new URL(import.meta.url).search;
+        icon.src = url.href;
+        icon.alt = "";
+        const text = document.createElement("div");
+        const label = document.createElement("span");
+        label.textContent = name;
+        const amount = document.createElement("strong");
+        amount.textContent = "—";
+        text.append(label, amount);
+        tile.append(icon, text);
+        list.append(tile);
+        this.items.set(suffix || `${key.replaceAll("-", "_")}_world_stock`, amount);
+      }
+      section.append(heading, list);
+      output.append(section);
+    }
+  }
+
+  setConfig(config) {
+    this.prefix = config.entity_prefix;
+    this.update();
+  }
+
+  set hass(hass) {
+    this.currentHass = hass;
+    this.update();
+  }
+
+  update() {
+    if (!this.currentHass) return;
+    const { states, language } = this.currentHass;
+    let prefix = this.prefix;
+    if (!prefix) {
+      const sensorIds = Object.keys(states).filter(id => id.startsWith("sensor.satisfactory_")).sort();
+      for (const id of sensorIds) {
+        const suffix = [...this.items.keys()].find(key => id.endsWith("_" + key));
+        if (suffix) {
+          prefix = id.slice(0, -suffix.length);
+          break;
+        }
+      }
+    }
+    for (const [suffix, amount] of this.items) {
+      const value = states[prefix + suffix]?.state;
+      const number = value?.trim() ? Number(value) : NaN;
+      amount.textContent = Number.isFinite(number)
+        ? number.toLocaleString(language) : "—";
+    }
+  }
+
+  getCardSize() { return 6; }
+}
+
+if (!customElements.get("satisfactory-stock-card")) {
+  customElements.define("satisfactory-stock-card", SatisfactoryStockCard);
+  (window.customCards ||= []).push({
+    type: "satisfactory-stock-card",
+    name: "Satisfactory Stock Levels",
+    description: "Track alien materials, drop pods, hard drives, and alien artifacts.",
+    preview: true,
+  });
+}
