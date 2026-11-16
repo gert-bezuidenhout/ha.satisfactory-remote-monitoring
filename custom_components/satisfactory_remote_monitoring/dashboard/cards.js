@@ -178,8 +178,10 @@ class SatisfactorySummaryCard extends HTMLElement {
       <ha-card>${coupon
         ? '<div class="ticket"><img alt="FICSIT Printable Coupons"><output></output></div>'
         : '<div class="power"><img class="pylon" alt=""><div><strong>Circuit Power</strong><dl></dl></div></div>'}</ha-card>`;
-    this.shadowRoot.querySelector("img").src =
-      new URL(coupon ? "./coupon-popup.png" : "./power-pylon.png", import.meta.url).href;
+    const moduleUrl = new URL(import.meta.url);
+    const imageUrl = new URL(coupon ? "./coupon-popup.png" : "./power-pylon.png", moduleUrl);
+    imageUrl.search = moduleUrl.search;
+    this.shadowRoot.querySelector("img").src = imageUrl.href;
     if (coupon) {
       const value = entity?.state;
       this.shadowRoot.querySelector("output").textContent =

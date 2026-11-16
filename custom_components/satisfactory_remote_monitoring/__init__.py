@@ -4,6 +4,7 @@ from pathlib import Path
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import Platform
+from homeassistant.loader import async_get_integration
 
 from .coordinator import FrmCoordinator
 from .factory import FactoryCoordinator
@@ -18,7 +19,8 @@ async def async_setup(hass, config):
     await hass.http.async_register_static_paths([
         StaticPathConfig(url, str(assets), False),
     ])
-    add_extra_js_url(hass, f"{url}/cards.js")
+    integration = await async_get_integration(hass, "satisfactory_remote_monitoring")
+    add_extra_js_url(hass, f"{url}/cards.js?v={integration.version}")
     return True
 
 
