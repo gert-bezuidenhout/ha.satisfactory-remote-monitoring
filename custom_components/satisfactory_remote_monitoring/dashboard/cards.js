@@ -240,7 +240,13 @@ class SatisfactorySummaryCard extends HTMLElement {
         .power { display:grid; grid-template-columns:clamp(42px,20%,84px) minmax(0,1fr);
           align-items:start; gap:12px; text-align:left; }
         .pylon { display:block; width:100%; max-height:96px; object-fit:contain; }
-        .power dl { overflow-wrap:anywhere; }
+        .power dl { display:grid; gap:8px; overflow-wrap:anywhere; }
+        .power .circuit { padding:10px; border:1px solid var(--divider-color);
+          border-radius:8px; background:var(--secondary-background-color, transparent); }
+        .power dt { margin:0; }
+        .power .load { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px;
+          margin-top:6px; font-size:.85rem; }
+        .power progress { flex:1 1 64px; min-width:0; height:7px; accent-color:#f39a32; }
         .tripped { color:var(--error-color, #ff5353); font-weight:700; }
         strong { font-size:1.1rem; } 
         ha-icon { color:#ffbf50; --mdc-icon-size:46px; }
@@ -269,11 +275,16 @@ class SatisfactorySummaryCard extends HTMLElement {
     const registry = this.currentHass.entities;
     const device = registry?.[entity?.entity_id]?.device_id;
     for (const [id, state] of Object.entries(this.currentHass.states)) {
-      const match = /^binary_sensor\.satisfactory_.+_circuit_group_(\d+)_fuse_tripped$/.exec(id);
-      if (!match) continue;
+      const match = /^(binary_sensor|sensor)\.satisfactory_.+_circuit_group_(\d+)_(fuse_tripped|circuit_load)$/.exec(id);
+      if (!match || (match[1] === "sensor") !== (match[3] === "circuit_load")) continue;
       if (device && registry?.[id]?.device_id !== device) continue;
-      const group = `CIRCUIT GROUP ${match[1]}`;
+      const group = `CIRCUIT GROUP ${match[2]}`;
       const data = groups.get(group);
+      if (match[3] === "circuit_load") {
+        const load = state.state.trim() ? Number(state.state) : NaN;
+        groups.set(group, { ...data, load: Number.isFinite(load) && load >= 0 ? load : data?.load });
+        continue;
+      }
       groups.set(group, {
         ...data,
         tripped: data?.tripped || state.state === "on",
@@ -294,7 +305,23 @@ class SatisfactorySummaryCard extends HTMLElement {
       } else {
         value.textContent = data.reading || (data.fuseKnown ? "Power readings unavailable" : "Fuse status unavailable");
       }
-      list.append(title, value);
+      const row = document.createElement("div");
+      row.className = data.tripped ? "circuit tripped" : "circuit";
+      const load = document.createElement("dd");
+      load.className = "load";
+      const label = document.createElement("span");
+      label.textContent = data.load == null ? "Load unavailable"
+        : `Load ${data.load.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+      load.append(label);
+      if (data.load != null) {
+        const bar = document.createElement("progress");
+        bar.max = 100;
+        bar.value = Math.min(data.load, 100);
+        bar.setAttribute("aria-label", `${group} load`);
+        load.append(bar);
+      }
+      row.append(title, value, load);
+      list.append(row);
     }
     if (!list.children.length) list.textContent = "No circuit data";
   }
