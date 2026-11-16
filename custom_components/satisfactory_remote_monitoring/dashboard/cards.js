@@ -215,8 +215,9 @@ customElements.define("satisfactory-player-editor", SatisfactoryPlayerEditor);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "satisfactory-player-card",
-  name: "Satisfactory Player",
-  description: "Show a player's health and online status.",
+  name: "Satisfactory Player Health (Selected)",
+  description: "Choose one or more players to see their health bars and online status.",
+  preview: true,
 });
 }
 
@@ -332,15 +333,17 @@ class SatisfactorySummaryCard extends HTMLElement {
   }
 }
 
-for (const [type, name] of [
-  ["satisfactory-coupons-card", "Satisfactory Coupons"],
-  ["satisfactory-power-card", "Satisfactory Circuit Power"],
+for (const [type, name, description] of [
+  ["satisfactory-coupons-card", "Satisfactory Printable Coupons",
+    "Display the current printable coupon count on a FICSIT ticket."],
+  ["satisfactory-power-card", "Satisfactory Power Circuit Overview",
+    "See each circuit’s load, maximum consumption, capacity, and fuse status."],
 ]) {
   if (!customElements.get(type)) {
     customElements.define(type, class extends SatisfactorySummaryCard {
       static getStubConfig() { return {}; }
     });
-    (window.customCards ||= []).push({ type, name });
+    (window.customCards ||= []).push({ type, name, description, preview: true });
   }
 }
 
@@ -394,7 +397,8 @@ if (!customElements.get("satisfactory-players-card")) {
   customElements.define("satisfactory-players-card", SatisfactoryPlayersCard);
   (window.customCards ||= []).push({
     type: "satisfactory-players-card",
-    name: "Satisfactory Players",
-    description: "Show all discovered Satisfactory players and their health.",
+    name: "Satisfactory Player Health (All)",
+    description: "Automatically show health bars and online status for all detected players.",
+    preview: true,
   });
 }
