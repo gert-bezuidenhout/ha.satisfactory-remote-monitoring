@@ -1,3 +1,6 @@
+// Wait for Home Assistant to initialize its custom element registry.
+await customElements.whenDefined("home-assistant");
+
 const playerName = state => (state.attributes.friendly_name || state.entity_id.split(".")[1])
   .replace(/^Satisfactory\s*\([^)]*\)\s*/i, "").replace(/(?:\s+|_)(?:health|online|dead)$/i, "");
 
@@ -14,15 +17,7 @@ function discoverPlayers(states = {}) {
   return [...players].sort((a, b) => a[1].localeCompare(b[1]));
 }
 
-class SatisfactoryPlayerCard extends HTMLElement {
-  static getConfigElement() {
-    return document.createElement("satisfactory-player-editor");
-  }
-
-  static getStubConfig(hass) {
-    return { entity: discoverPlayers(hass?.states)[0]?.[0] || "" };
-  }
-
+class SatisfactoryPlayerRow extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" }).innerHTML = `
@@ -83,12 +78,53 @@ class SatisfactoryPlayerCard extends HTMLElement {
     status.style.color = dead ? "#ff4848" : online === "on" ? "#65d98a" : "var(--secondary-text-color)";
     root.querySelector("ha-icon").style.color = dead ? "#ff3131" : "#fff";
     root.getElementById("bar").setAttribute("aria-label", known ? `${Math.ceil(hp)} of 100 HP` : "Health unavailable");
-    root.getElementById("hp").textContent = `${known ? hp : "-"} / 100 HP`;
+    root.getElementById("hp").textContent = `${known ? Math.ceil(hp) : "-"} / 100 HP`;
     root.querySelectorAll(".slot").forEach((slot, index) => {
       const fill = Math.max(0, Math.min(10, hp - index * 10)) * 10;
       slot.style.setProperty("--fill", `${fill}%`);
     });
   }
+}
+
+
+function selectedPlayers(config) {
+  const ids = Array.isArray(config?.entities) ? config.entities : [config?.entity];
+  return [...new Set(ids.filter(id => typeof id === "string" && id))];
+}
+
+class SatisfactoryPlayerCard extends HTMLElement {
+  static getConfigElement() {
+    return document.createElement("satisfactory-player-editor");
+  }
+
+  static getStubConfig(hass) {
+    return { entity: discoverPlayers(hass?.states)[0]?.[0] || "" };
+  }
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML =
+      '<style>:host{display:grid;gap:8px;min-width:0}</style><div id="rows" style="display:grid;gap:8px"></div>';
+  }
+
+  setConfig(config) {
+    const ids = selectedPlayers(config);
+    this.size = Math.max(1, ids.length);
+    const rows = ids.length ? ids : [""];
+    this.shadowRoot.getElementById("rows").replaceChildren(...rows.map(entity => {
+      const row = document.createElement("satisfactory-player-row");
+      row.setConfig({ entity });
+      if (this.currentHass) row.hass = this.currentHass;
+      return row;
+    }));
+  }
+
+  set hass(hass) {
+    this.currentHass = hass;
+    for (const row of this.shadowRoot.getElementById("rows").children) row.hass = hass;
+  }
+
+  getCardSize() { return 2 * (this.size || 1); }
 }
 
 class SatisfactoryPlayerEditor extends HTMLElement {
@@ -97,17 +133,20 @@ class SatisfactoryPlayerEditor extends HTMLElement {
     const root = this.attachShadow({ mode: "open" });
     root.innerHTML = `
       <style>
-        label { display:grid; gap:6px; }
-        select { width:100%; padding:10px; color:var(--primary-text-color);
+        #choices { display:grid; gap:8px; margin:6px 0 8px; }
+        .choice { display:flex; gap:8px; }
+        select { flex:1; min-width:0; padding:10px; color:var(--primary-text-color);
           background:var(--card-background-color); border:1px solid var(--divider-color); }
+        button { padding:8px; color:var(--primary-color); background:transparent;
+          border:1px solid var(--divider-color); border-radius:4px; cursor:pointer; }
+        button:disabled { opacity:.45; cursor:default; }
       </style>
-      <label>Player<select></select></label>`;
-    this.select = root.querySelector("select");
-    this.select.addEventListener("change", () => {
-      this.config = { ...this.config, entity: this.select.value };
-      this.dispatchEvent(new CustomEvent("config-changed", {
-        detail: { config: this.config }, bubbles: true, composed: true,
-      }));
+      <div>Players</div><div id="choices"></div><button id="add" type="button">+ Add player</button>`;
+    this.add = root.getElementById("add");
+    this.add.addEventListener("click", () => {
+      const ids = selectedPlayers(this.config);
+      const next = discoverPlayers(this.currentHass?.states).find(([id]) => !ids.includes(id));
+      if (next) this.save([...ids, next[0]]);
     });
   }
 
@@ -121,21 +160,56 @@ class SatisfactoryPlayerEditor extends HTMLElement {
     this.refresh();
   }
 
+  save(ids) {
+    const { entity, entities, ...config } = this.config || {};
+    this.config = { ...config, entities: ids };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config: this.config }, bubbles: true, composed: true,
+    }));
+  }
+
   refresh() {
-    const selected = this.config?.entity || "";
+    const ids = selectedPlayers(this.config);
     const players = discoverPlayers(this.currentHass?.states);
-    const signature = JSON.stringify([selected, players]);
+    const signature = JSON.stringify([ids, players]);
     if (signature === this.signature) return;
     this.signature = signature;
-    this.select.replaceChildren(new Option("Select a player", ""));
-    for (const [id, name] of players) this.select.add(new Option(name, id));
-    if (selected && !players.some(([id]) => id === selected))
-      this.select.add(new Option(`${selected} (unavailable)`, selected));
-    this.select.value = selected;
+    this.add.disabled = !players.some(([id]) => !ids.includes(id));
+    const choices = this.shadowRoot.getElementById("choices");
+    choices.replaceChildren();
+    for (const [index, selected] of (ids.length ? ids : [""]).entries()) {
+      const row = document.createElement("div");
+      row.className = "choice";
+      const select = document.createElement("select");
+      select.setAttribute("aria-label", `Player ${index + 1}`);
+      if (!selected) select.add(new Option("Select a player", ""));
+      for (const [id, name] of players)
+        if (id === selected || !ids.includes(id)) select.add(new Option(name, id));
+      if (selected && !players.some(([id]) => id === selected))
+        select.add(new Option(`${selected} (unavailable)`, selected));
+      select.value = selected;
+      select.addEventListener("change", () => {
+        const updated = [...ids];
+        updated[index] = select.value;
+        this.save(updated.filter(Boolean));
+      });
+      row.append(select);
+      if (selected) {
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remove";
+        remove.setAttribute("aria-label", `Remove player ${index + 1}`);
+        remove.addEventListener("click", () => this.save(ids.filter(id => id !== selected)));
+        row.append(remove);
+      }
+      choices.append(row);
+    }
   }
 }
 
 if (!customElements.get("satisfactory-player-card")) {
+customElements.define("satisfactory-player-row", SatisfactoryPlayerRow);
 customElements.define("satisfactory-player-card", SatisfactoryPlayerCard);
 customElements.define("satisfactory-player-editor", SatisfactoryPlayerEditor);
 window.customCards = window.customCards || [];
@@ -169,7 +243,13 @@ class SatisfactorySummaryCard extends HTMLElement {
         .power { display:grid; grid-template-columns:clamp(42px,20%,84px) minmax(0,1fr);
           align-items:start; gap:12px; text-align:left; }
         .pylon { display:block; width:100%; max-height:96px; object-fit:contain; }
-        .power dl { overflow-wrap:anywhere; }
+        .power dl { display:grid; gap:8px; overflow-wrap:anywhere; }
+        .power .circuit { padding:10px; border:1px solid var(--divider-color);
+          border-radius:8px; background:var(--secondary-background-color, transparent); }
+        .power dt { margin:0; }
+        .power .load { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px;
+          margin-top:6px; font-size:.85rem; }
+        .power progress { flex:1 1 64px; min-width:0; height:7px; accent-color:#f39a32; }
         .tripped { color:var(--error-color, #ff5353); font-weight:700; }
         strong { font-size:1.1rem; } 
         ha-icon { color:#ffbf50; --mdc-icon-size:46px; }
@@ -200,11 +280,16 @@ class SatisfactorySummaryCard extends HTMLElement {
     const registry = this.currentHass.entities;
     const device = registry?.[entity?.entity_id]?.device_id;
     for (const [id, state] of Object.entries(this.currentHass.states)) {
-      const match = /^binary_sensor\.satisfactory_.+_circuit_group_(\d+)_fuse_tripped$/.exec(id);
-      if (!match) continue;
+      const match = /^(binary_sensor|sensor)\.satisfactory_.+_circuit_group_(\d+)_(fuse_tripped|circuit_load)$/.exec(id);
+      if (!match || (match[1] === "sensor") !== (match[3] === "circuit_load")) continue;
       if (device && registry?.[id]?.device_id !== device) continue;
-      const group = `CIRCUIT GROUP ${match[1]}`;
+      const group = `CIRCUIT GROUP ${match[2]}`;
       const data = groups.get(group);
+      if (match[3] === "circuit_load") {
+        const load = state.state.trim() ? Number(state.state) : NaN;
+        groups.set(group, { ...data, load: Number.isFinite(load) && load >= 0 ? load : data?.load });
+        continue;
+      }
       groups.set(group, {
         ...data,
         tripped: data?.tripped || state.state === "on",
@@ -225,7 +310,23 @@ class SatisfactorySummaryCard extends HTMLElement {
       } else {
         value.textContent = data.reading || (data.fuseKnown ? "Power readings unavailable" : "Fuse status unavailable");
       }
-      list.append(title, value);
+      const row = document.createElement("div");
+      row.className = data.tripped ? "circuit tripped" : "circuit";
+      const load = document.createElement("dd");
+      load.className = "load";
+      const label = document.createElement("span");
+      label.textContent = data.load == null ? "Load unavailable"
+        : `Load ${data.load.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
+      load.append(label);
+      if (data.load != null) {
+        const bar = document.createElement("progress");
+        bar.max = 100;
+        bar.value = Math.min(data.load, 100);
+        bar.setAttribute("aria-label", `${group} load`);
+        load.append(bar);
+      }
+      row.append(title, value, load);
+      list.append(row);
     }
     if (!list.children.length) list.textContent = "No circuit data";
   }
