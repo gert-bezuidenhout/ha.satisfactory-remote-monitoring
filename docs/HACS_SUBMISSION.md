@@ -1,22 +1,27 @@
-# HACS submission checklist
+# Marketplace catalogue submission
 
-Prepared for later submission. This file does not claim default-catalogue acceptance. Submission remains deferred.
+Status: prepared; not yet submitted or accepted. Custom-repository installation is still required.
 
 Repository: https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring
 Category: integration
 
-## Before submitting
+Add `gert-bezuidenhout/ha.satisfactory-remote-monitoring` alphabetically to the `integration` file in a branch created from `master` in the owner's fork of [hacs/default](https://github.com/hacs/default). Allow maintainer edits.
 
-- [ ] Confirm a fresh custom-repository installation and successful setup in Home Assistant.
-- [ ] Confirm restart, reload and update behaviour against a live FRM server; record the tested Home Assistant and FRM versions.
-- [ ] Confirm the repository description, relevant topics and enabled Issues.
-- [ ] Confirm GitHub recognises the MIT licence and review branding rights.
-- [ ] Require passing syntax, regression, Hassfest and HACS checks without ignored failures.
-- [ ] Confirm a full GitHub release exists with a tag matching the manifest version.
-- [ ] Check the current [HACS inclusion requirements](https://www.hacs.xyz/docs/publish/include/).
+Suggested PR title: Add gert-bezuidenhout/ha.satisfactory-remote-monitoring
 
-## Later submission
+The following body records verified automated checks and release publication. It does not claim live-device testing.
 
-When submission is authorised and the checklist is complete, follow the current contribution instructions in [hacs/default](https://github.com/hacs/default). Include the repository in the integration list and provide actual validation and release links.
+## Checklist
 
-Custom-repository installation remains the documented route until catalogue acceptance is confirmed.
+- [x] I've read the [publishing documentation](https://hacs.xyz/docs/publish/start).
+- [x] I've added the [HACS action](https://hacs.xyz/docs/publish/action) to my repository.
+- [x] (For integrations only) I've added the [hassfest action](https://developers.home-assistant.io/blog/2020/04/16/hassfest/) to my repository.
+- [x] The actions are passing without any disabled checks in my repository.
+- [x] I've added a link to the action run on my repository below in the links section.
+- [x] I've created a new release of the repository after the validation actions were run successfully.
+
+## Links
+
+Link to current release: https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring/releases/tag/0.4.22
+Link to successful HACS action (without the `ignore` key): https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring/actions/runs/43887606711/job/133369870031
+Link to successful hassfest action (if integration): https://github.com/gert-bezuidenhout/ha.satisfactory-remote-monitoring/actions/runs/43887606711/job/133369870457
